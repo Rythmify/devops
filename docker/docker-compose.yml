@@ -50,27 +50,6 @@ services:
     networks:
       - rythmify_network
 
-  backend:
-    build:
-      context: ../../backend
-      dockerfile: Dockerfile
-    container_name: rythmify_backend
-    restart: unless-stopped
-    env_file:
-      - ../environments/.env
-    ports:
-      - "8080:8080"
-    networks:
-      - rythmify_network
-    depends_on:
-      db:
-        condition: service_healthy
-      blob:
-        condition: service_started
-    volumes:
-      - ../../backend:/app
-      - /app/node_modules
-
 volumes:
   postgres_data:
   pgadmin_data:
