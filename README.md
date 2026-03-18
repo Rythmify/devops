@@ -53,7 +53,7 @@ The DevOps pipeline for Rythmify is structured around three progressive phases:
 │                        PHASE 1 — CURRENT                        │
 │                      Local Development                          │
 │                                                                 │
-│   Developer ──► Docker Compose ──► Backend + Frontend (local)  │
+│   Developer ──► Docker Compose ──► Backend + Frontend (local)   │
 │                      │                                          │
 │                  GitHub Actions                                 │
 │              (CI: Lint, Test, Build)                            │
@@ -72,7 +72,7 @@ The DevOps pipeline for Rythmify is structured around three progressive phases:
 
 ┌─────────────────────────────────────────────────────────────────┐
 │                     PHASE 3 — FUTURE                            │
-│                  Monitoring & Observability                      │
+│                  Monitoring & Observability                     │
 │                                                                 │
 │   Grafana Dashboards ◄── Metrics, Logs & Alerts                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -90,10 +90,7 @@ C:.
 ├── .github/
 │   ├── CODEOWNERS
 │   └── workflows/
-│       ├── backend-ci.yml
-│       ├── deploy.yml
-│       ├── frontend-ci.yml
-│       └── mobile-ci.yml
+│       ├── the ci pipelines will be here
 │
 ├── docker/
 │   ├── docker-compose.yml
@@ -108,10 +105,8 @@ C:.
 │   └── system-architecture.md
 │
 ├── environments/
+│   ├── .env
 │   ├── .env.example
-│   ├── dev.env
-│   ├── production.env
-│   └── staging.env
 │
 ├── monitoring/
 │   ├── alerts.md
@@ -119,12 +114,7 @@ C:.
 │   └── logs.md
 │
 └── scripts/
-    ├── build.ps1
-    ├── build.sh
-    ├── deploy.ps1
-    ├── deploy.sh
-    ├── test.ps1
-    └── test.sh
+    ├── here is where all the scripts will be
 ```
 
 ### Directory Breakdown
@@ -417,13 +407,13 @@ Once local development is stable, the platform will be deployed to Microsoft Azu
                         │                                  │
                         │  ┌────────────────────────────┐  │
                         │  │    Azure App Service       │  │
-                        │  │  ┌──────────┐ ┌─────────┐ │  │
-                        │  │  │ Backend  │ │Frontend │ │  │
-                        │  │  └────┬─────┘ └─────────┘ │  │
+                        │  │  ┌──────────┐ ┌─────────┐  │  │
+                        │  │  │ Backend  │ │Frontend │  │  │
+                        │  │  └────┬─────┘ └─────────┘  │  │
                         │  └───────┼────────────────────┘  │
-                        │          │                        │
+                        │          │                       │
                         │  ┌───────▼──────────────────┐    │
-                        │  │  Azure PostgreSQL DB      │    │
+                        │  │  Azure PostgreSQL DB     │    │
                         │  └──────────────────────────┘    │
                         │                                  │
                         │  ┌───────────────────────────┐   │
