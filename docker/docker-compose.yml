@@ -40,7 +40,8 @@ services:
 
   blob:
     image: mcr.microsoft.com/azure-storage/azurite:latest
-    container_name: rythmify_blob
+    container_name: azurite
+    hostname: azurite
     restart: unless-stopped
     command: azurite-blob --blobHost 0.0.0.0 --blobPort 10000 --skipApiVersionCheck --loose --debug /data/debug.log
     ports:
