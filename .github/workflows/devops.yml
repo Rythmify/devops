@@ -186,19 +186,32 @@ jobs:
           grep -o '^[^=]*' environments/.env
 
       - name: Start infrastructure containers
-        run: bash scripts/start-infra.sh
+        run: |
+          docker compose -f docker/docker-compose.yml --env-file environments/.env up -d
+          echo "Infrastructure running."
 
       - name: Build backend and frontend images
-        run: bash scripts/build.sh
+        run: |
+          export BACKEND_CONTEXT=$GITHUB_WORKSPACE/backend
+          export FRONTEND_CONTEXT=$GITHUB_WORKSPACE/frontend
+          echo "Backend context:  $BACKEND_CONTEXT"
+          echo "Frontend context: $FRONTEND_CONTEXT"
+          docker compose -f docker/docker-compose.yml          --env-file environments/.env build --no-cache
+          docker compose -f docker/docker-compose.backend.yml  --env-file environments/.env build --no-cache
+          docker compose -f docker/docker-compose.frontend.yml --env-file environments/.env build --no-cache
+          echo "Build complete."
 
       - name: Start backend
-        run: bash scripts/start-backend.sh
+        run: |
+          export BACKEND_CONTEXT=$GITHUB_WORKSPACE/backend
+          docker compose -f docker/docker-compose.backend.yml --env-file environments/.env up -d
+          echo "Backend running."
 
       - name: Run migrations
-        run: bash scripts/migrate.sh
+        run: docker exec rythmify_backend sh -c "npm run migrate"
 
       - name: Run seeds
-        run: bash scripts/seed.sh
+        run: docker exec rythmify_backend sh -c "npm run seed"
 
       - name: Run backend smoke check
         run: |
@@ -228,12 +241,12 @@ jobs:
           docker compose -f docker/docker-compose.yml          --env-file environments/.env logs > ci-logs/infra.log    2>&1 || true
           docker compose -f docker/docker-compose.backend.yml  --env-file environments/.env logs > ci-logs/backend.log  2>&1 || true
           docker compose -f docker/docker-compose.frontend.yml --env-file environments/.env logs > ci-logs/frontend.log 2>&1 || true
-          echo "--- All containers (docker ps -a) ---"                                          >> ci-logs/infra.log
-          docker ps -a                                                                           >> ci-logs/infra.log    2>&1 || true
-          echo "--- Backend container logs (fallback) ---"                                      >> ci-logs/backend.log
-          docker logs rythmify_backend                                                           >> ci-logs/backend.log  2>&1 || true
-          echo "--- Frontend container logs (fallback) ---"                                     >> ci-logs/frontend.log
-          docker logs rythmify_frontend                                                          >> ci-logs/frontend.log 2>&1 || true
+          echo "--- All containers (docker ps -a) ---"                                           >> ci-logs/infra.log
+          docker ps -a                                                                            >> ci-logs/infra.log    2>&1 || true
+          echo "--- Backend container logs (fallback) ---"                                       >> ci-logs/backend.log
+          docker logs rythmify_backend                                                            >> ci-logs/backend.log  2>&1 || true
+          echo "--- Frontend container logs (fallback) ---"                                      >> ci-logs/frontend.log
+          docker logs rythmify_frontend                                                           >> ci-logs/frontend.log 2>&1 || true
 
       - name: Upload logs as artifact
         if: failure()
@@ -245,4 +258,8 @@ jobs:
 
       - name: Tear down all containers
         if: always()
-        run: bash scripts/stop.sh
+        run: |
+          docker compose -f docker/docker-compose.frontend.yml --env-file environments/.env down 2>/dev/null || true
+          docker compose -f docker/docker-compose.backend.yml  --env-file environments/.env down 2>/dev/null || true
+          docker compose -f docker/docker-compose.yml          --env-file environments/.env down 2>/dev/null || true
+          echo "Stopped."
