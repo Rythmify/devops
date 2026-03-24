@@ -150,38 +150,40 @@ jobs:
 
       - name: Write .env file for CI
         run: |
-          cat > environments/.env << EOF
-          NODE_ENV=${NODE_ENV}
-          PORT=${PORT}
-          BASE_URL=${BASE_URL}
-          CLIENT_URL=${CLIENT_URL}
-          APP_URL=${APP_URL}
-          POSTGRES_USER=${POSTGRES_USER}
-          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-          POSTGRES_DB=${POSTGRES_DB}
-          DATABASE_URL=${DATABASE_URL}
-          PGADMIN_EMAIL=${PGADMIN_EMAIL}
-          PGADMIN_PASSWORD=${PGADMIN_PASSWORD}
-          AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING}
-          BLOB_CONTAINER_AUDIO=${BLOB_CONTAINER_AUDIO}
-          BLOB_CONTAINER_MEDIA=${BLOB_CONTAINER_MEDIA}
-          JWT_SECRET=${JWT_SECRET}
-          JWT_ACCESS_EXPIRES_IN=${JWT_ACCESS_EXPIRES_IN}
-          JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN}
-          GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-          GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-          GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
-          GMAIL_USER=${GMAIL_USER}
-          GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
-          EMAIL_FROM=${EMAIL_FROM}
-          RECAPTCHA_SECRET=${RECAPTCHA_SECRET}
-          VITE_API_BASE_URL=${VITE_API_BASE_URL}
-          VITE_USE_MOCK=${VITE_USE_MOCK}
-          VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
-          VITE_APP_URL=${VITE_APP_URL}
-          VITE_RECAPTCHA_SITE_KEY=${VITE_RECAPTCHA_SITE_KEY}
-          EOF
+          {
+            echo "NODE_ENV=${NODE_ENV}"
+            echo "PORT=${PORT}"
+            echo "BASE_URL=${BASE_URL}"
+            echo "CLIENT_URL=${CLIENT_URL}"
+            echo "APP_URL=${APP_URL}"
+            echo "POSTGRES_USER=${POSTGRES_USER}"
+            echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
+            echo "POSTGRES_DB=${POSTGRES_DB}"
+            echo "DATABASE_URL=${DATABASE_URL}"
+            echo "PGADMIN_EMAIL=${PGADMIN_EMAIL}"
+            echo "PGADMIN_PASSWORD=${PGADMIN_PASSWORD}"
+            echo "AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING}"
+            echo "BLOB_CONTAINER_AUDIO=${BLOB_CONTAINER_AUDIO}"
+            echo "BLOB_CONTAINER_MEDIA=${BLOB_CONTAINER_MEDIA}"
+            echo "JWT_SECRET=${JWT_SECRET}"
+            echo "JWT_ACCESS_EXPIRES_IN=${JWT_ACCESS_EXPIRES_IN}"
+            echo "JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN}"
+            echo "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}"
+            echo "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}"
+            echo "GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}"
+            echo "GMAIL_USER=${GMAIL_USER}"
+            echo "GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}"
+            echo "EMAIL_FROM=${EMAIL_FROM}"
+            echo "RECAPTCHA_SECRET=${RECAPTCHA_SECRET}"
+            echo "VITE_API_BASE_URL=${VITE_API_BASE_URL}"
+            echo "VITE_USE_MOCK=${VITE_USE_MOCK}"
+            echo "VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}"
+            echo "VITE_APP_URL=${VITE_APP_URL}"
+            echo "VITE_RECAPTCHA_SITE_KEY=${VITE_RECAPTCHA_SITE_KEY}"
+          } > environments/.env
           echo ".env written for CI."
+          echo "--- Verifying .env (keys only) ---"
+          grep -o '^[^=]*' environments/.env
 
       - name: Start infrastructure containers
         run: bash scripts/start-infra.sh
@@ -202,16 +204,21 @@ jobs:
         run: |
           echo "Running backend smoke check..."
           for i in $(seq 1 30); do
-            curl -sf http://localhost:8080/health > /dev/null && \
-              echo "Backend is healthy." && break
+            if curl -sf http://localhost:${PORT}/health > /dev/null; then
+              echo "Backend is healthy."
+              break
+            fi
             echo "Attempt $i — not ready yet, waiting 3s..."
+            if [ "$i" -eq 30 ]; then
+              echo "Backend health check failed after 30 attempts (90s)."
+              exit 1
+            fi
             sleep 3
           done
-          response=$(curl -sf http://localhost:8080/health) || \
-            { echo "Backend health check failed."; exit 1; }
+          response=$(curl -sf http://localhost:${PORT}/health)
           echo "Response: $response"
           echo "$response" | grep -q '"status":"ok"' || \
-            { echo "Smoke check failed — unexpected response."; exit 1; }
+            { echo "Smoke check failed — unexpected response: $response"; exit 1; }
           echo "Smoke check passed."
 
       - name: Collect Docker logs on failure
@@ -221,6 +228,12 @@ jobs:
           docker compose -f docker/docker-compose.yml          --env-file environments/.env logs > ci-logs/infra.log    2>&1 || true
           docker compose -f docker/docker-compose.backend.yml  --env-file environments/.env logs > ci-logs/backend.log  2>&1 || true
           docker compose -f docker/docker-compose.frontend.yml --env-file environments/.env logs > ci-logs/frontend.log 2>&1 || true
+          echo "--- All containers (docker ps -a) ---"                                          >> ci-logs/infra.log
+          docker ps -a                                                                           >> ci-logs/infra.log    2>&1 || true
+          echo "--- Backend container logs (fallback) ---"                                      >> ci-logs/backend.log
+          docker logs rythmify_backend                                                           >> ci-logs/backend.log  2>&1 || true
+          echo "--- Frontend container logs (fallback) ---"                                     >> ci-logs/frontend.log
+          docker logs rythmify_frontend                                                          >> ci-logs/frontend.log 2>&1 || true
 
       - name: Upload logs as artifact
         if: failure()
