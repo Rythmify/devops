@@ -103,7 +103,7 @@ jobs:
       POSTGRES_USER: dev
       POSTGRES_PASSWORD: devpassword
       POSTGRES_DB: rythmify_dev
-      DATABASE_URL: postgresql://dev:devpassword@localhost:5432/rythmify_dev
+      DATABASE_URL: postgresql://dev:devpassword@rythmify_db:5432/rythmify_dev
 
       PGADMIN_EMAIL: admin@admin.com
       PGADMIN_PASSWORD: admin
@@ -213,6 +213,13 @@ jobs:
           docker compose -f docker/docker-compose.frontend.yml --env-file environments/.env up -d
           echo "Frontend running."
 
+      - name: Wait for database
+        run: |
+          for i in $(seq 1 20); do
+            docker exec rythmify_db pg_isready -U dev -d rythmify_dev && break
+            echo "Attempt $i — DB not ready, waiting 3s..."
+            sleep 3
+          done
       - name: Run migrations
         run: docker exec rythmify_backend sh -c "npm run migrate:up"
 
