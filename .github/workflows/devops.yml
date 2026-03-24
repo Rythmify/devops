@@ -1,0 +1,280 @@
+name: DevOps — Main Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # JOB 1 — Validate repo structure
+  validate-structure:
+    name: Validate Repo Structure
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout DevOps repo
+        uses: actions/checkout@v4
+
+      - name: Check Docker Compose files exist
+        run: |
+          echo "Checking Docker Compose files..."
+          test -f docker/docker-compose.yml         || { echo "MISSING: docker/docker-compose.yml"; exit 1; }
+          test -f docker/docker-compose.backend.yml  || { echo "MISSING: docker/docker-compose.backend.yml"; exit 1; }
+          test -f docker/docker-compose.frontend.yml || { echo "MISSING: docker/docker-compose.frontend.yml"; exit 1; }
+          echo "All Docker Compose files present."
+
+      - name: Check Dockerfiles exist
+        run: |
+          echo "Checking Dockerfiles..."
+          test -f docker/backend/Dockerfile  || { echo "MISSING: docker/backend/Dockerfile"; exit 1; }
+          test -f docker/frontend/Dockerfile || { echo "MISSING: docker/frontend/Dockerfile"; exit 1; }
+          echo "All Dockerfiles present."
+
+      - name: Check scripts exist
+        run: |
+          echo "Checking bash scripts..."
+          for script in build.sh clean.sh migrate.sh seed.sh start.sh stop.sh \
+                        start-infra.sh start-backend.sh start-frontend.sh; do
+            test -f scripts/$script || { echo "MISSING: scripts/$script"; exit 1; }
+          done
+          echo "All required scripts present."
+
+      - name: Check scripts are executable or callable
+        run: |
+          echo "Checking script syntax..."
+          for script in scripts/*.sh; do
+            bash -n "$script" || { echo "SYNTAX ERROR in $script"; exit 1; }
+          done
+          echo "All scripts passed syntax check."
+
+      - name: Check .env.example exists
+        run: |
+          test -f environments/.env.example || { echo "MISSING: environments/.env.example"; exit 1; }
+          echo ".env.example present."
+
+      - name: Validate required keys in .env.example
+        run: |
+          echo "Validating required env keys in .env.example..."
+          required_keys=(
+            "NODE_ENV"
+            "PORT"
+            "DATABASE_URL"
+            "POSTGRES_USER"
+            "POSTGRES_PASSWORD"
+            "POSTGRES_DB"
+            "AZURE_STORAGE_CONNECTION_STRING"
+            "BLOB_CONTAINER_AUDIO"
+            "BLOB_CONTAINER_MEDIA"
+            "JWT_SECRET"
+            "JWT_ACCESS_EXPIRES_IN"
+            "JWT_REFRESH_EXPIRES_IN"
+            "GOOGLE_CLIENT_ID"
+            "GOOGLE_CLIENT_SECRET"
+            "GMAIL_USER"
+            "GMAIL_APP_PASSWORD"
+            "RECAPTCHA_SECRET"
+            "VITE_API_BASE_URL"
+            "VITE_GOOGLE_CLIENT_ID"
+            "VITE_RECAPTCHA_SITE_KEY"
+          )
+          missing=0
+          for key in "${required_keys[@]}"; do
+            grep -q "^${key}=" environments/.env.example || {
+              echo "MISSING KEY in .env.example: $key"
+              missing=1
+            }
+          done
+          [ $missing -eq 0 ] || exit 1
+          echo "All required keys present in .env.example."
+
+  # JOB 2 — Full integration validation
+  integration:
+    name: Full Integration Validation
+    runs-on: ubuntu-latest
+    needs: validate-structure
+
+    env:
+      NODE_ENV: development
+      PORT: 8080
+      BASE_URL: http://localhost:8080
+      CLIENT_URL: http://localhost:5173
+      APP_URL: http://localhost:5173
+
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_DB: rythmify_dev
+      DATABASE_URL: postgresql://dev:devpassword@rythmify_db:5432/rythmify_dev
+
+      PGADMIN_EMAIL: admin@admin.com
+      PGADMIN_PASSWORD: admin
+
+      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://localhost:10000/devstoreaccount1;"
+      BLOB_CONTAINER_AUDIO: audio
+      BLOB_CONTAINER_MEDIA: media
+
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      GOOGLE_CALLBACK_URL: http://localhost:8080/api/v1/auth/google/callback
+      GMAIL_USER: ${{ secrets.GMAIL_USER }}
+      GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      EMAIL_FROM: "Rythmify <rythmify.noreply@gmail.com>"
+      RECAPTCHA_SECRET: ${{ secrets.RECAPTCHA_SECRET }}
+      VITE_API_BASE_URL: http://localhost:8080/api/v1
+      VITE_USE_MOCK: "false"
+      VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+      VITE_APP_URL: http://localhost:5173
+      VITE_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_RECAPTCHA_SITE_KEY }}
+
+    steps:
+      - name: Checkout DevOps repo
+        uses: actions/checkout@v4
+
+      - name: Checkout Backend repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/backend
+          ref: development
+          path: backend
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout Frontend repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/frontend
+          ref: development
+          path: frontend
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Write .env file for CI
+        run: |
+          {
+            echo "NODE_ENV=${NODE_ENV}"
+            echo "PORT=${PORT}"
+            echo "BASE_URL=${BASE_URL}"
+            echo "CLIENT_URL=${CLIENT_URL}"
+            echo "APP_URL=${APP_URL}"
+            echo "POSTGRES_USER=${POSTGRES_USER}"
+            echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
+            echo "POSTGRES_DB=${POSTGRES_DB}"
+            echo "DATABASE_URL=${DATABASE_URL}"
+            echo "PGADMIN_EMAIL=${PGADMIN_EMAIL}"
+            echo "PGADMIN_PASSWORD=${PGADMIN_PASSWORD}"
+            echo "AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING}"
+            echo "BLOB_CONTAINER_AUDIO=${BLOB_CONTAINER_AUDIO}"
+            echo "BLOB_CONTAINER_MEDIA=${BLOB_CONTAINER_MEDIA}"
+            echo "JWT_SECRET=${JWT_SECRET}"
+            echo "JWT_ACCESS_EXPIRES_IN=${JWT_ACCESS_EXPIRES_IN}"
+            echo "JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN}"
+            echo "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}"
+            echo "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}"
+            echo "GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}"
+            echo "GMAIL_USER=${GMAIL_USER}"
+            echo "GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}"
+            echo "EMAIL_FROM=${EMAIL_FROM}"
+            echo "RECAPTCHA_SECRET=${RECAPTCHA_SECRET}"
+            echo "VITE_API_BASE_URL=${VITE_API_BASE_URL}"
+            echo "VITE_USE_MOCK=${VITE_USE_MOCK}"
+            echo "VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}"
+            echo "VITE_APP_URL=${VITE_APP_URL}"
+            echo "VITE_RECAPTCHA_SITE_KEY=${VITE_RECAPTCHA_SITE_KEY}"
+          } > environments/.env
+          echo ".env written for CI."
+          echo "--- Verifying .env (keys only) ---"
+          grep -o '^[^=]*' environments/.env
+
+      - name: Start infrastructure containers
+        run: |
+          docker compose -f docker/docker-compose.yml --env-file environments/.env up -d
+          echo "Infrastructure running."
+
+      - name: Build backend and frontend images
+        run: |
+          export BACKEND_CONTEXT=$GITHUB_WORKSPACE/backend
+          export FRONTEND_CONTEXT=$GITHUB_WORKSPACE/frontend
+          echo "Backend context:  $BACKEND_CONTEXT"
+          echo "Frontend context: $FRONTEND_CONTEXT"
+          docker compose -f docker/docker-compose.yml          --env-file environments/.env build --no-cache
+          docker compose -f docker/docker-compose.backend.yml  --env-file environments/.env build --no-cache
+          docker compose -f docker/docker-compose.frontend.yml --env-file environments/.env build --no-cache
+          echo "Build complete."
+
+      - name: Start backend
+        run: |
+          export BACKEND_CONTEXT=$GITHUB_WORKSPACE/backend
+          docker compose -f docker/docker-compose.backend.yml --env-file environments/.env up -d
+          echo "Backend running."
+
+      - name: Start frontend
+        run: |
+          export FRONTEND_CONTEXT=$GITHUB_WORKSPACE/frontend
+          docker compose -f docker/docker-compose.frontend.yml --env-file environments/.env up -d
+          echo "Frontend running."
+
+      - name: Wait for database
+        run: |
+          for i in $(seq 1 20); do
+            docker exec rythmify_db pg_isready -U dev -d rythmify_dev && break
+            echo "Attempt $i — DB not ready, waiting 3s..."
+            sleep 3
+          done
+      - name: Run migrations
+        run: docker exec rythmify_backend sh -c "npm run migrate:up"
+
+      - name: Run seeds
+        run: |
+          docker cp $GITHUB_WORKSPACE/backend/seeds/seed.sql rythmify_db:/seed.sql
+          docker exec rythmify_db psql -U dev -d rythmify_dev -f /seed.sql
+
+      - name: Run backend smoke check
+        run: |
+          echo "Running backend smoke check..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:${PORT}/health > /dev/null; then
+              echo "Backend is healthy."
+              break
+            fi
+            echo "Attempt $i — not ready yet, waiting 3s..."
+            if [ "$i" -eq 30 ]; then
+              echo "Backend health check failed after 30 attempts (90s)."
+              exit 1
+            fi
+            sleep 3
+          done
+          response=$(curl -sf http://localhost:${PORT}/health)
+          echo "Response: $response"
+          echo "$response" | grep -q '"status":"ok"' || \
+            { echo "Smoke check failed — unexpected response: $response"; exit 1; }
+          echo "Smoke check passed."
+
+      - name: Collect Docker logs on failure
+        if: failure()
+        run: |
+          mkdir -p ci-logs
+          docker compose -f docker/docker-compose.yml          --env-file environments/.env logs > ci-logs/infra.log    2>&1 || true
+          docker compose -f docker/docker-compose.backend.yml  --env-file environments/.env logs > ci-logs/backend.log  2>&1 || true
+          docker compose -f docker/docker-compose.frontend.yml --env-file environments/.env logs > ci-logs/frontend.log 2>&1 || true
+          echo "--- All containers (docker ps -a) ---"                                           >> ci-logs/infra.log
+          docker ps -a                                                                            >> ci-logs/infra.log    2>&1 || true
+          echo "--- Backend container logs (fallback) ---"                                       >> ci-logs/backend.log
+          docker logs rythmify_backend                                                            >> ci-logs/backend.log  2>&1 || true
+          echo "--- Frontend container logs (fallback) ---"                                      >> ci-logs/frontend.log
+          docker logs rythmify_frontend                                                           >> ci-logs/frontend.log 2>&1 || true
+
+      - name: Upload logs as artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-failure-logs
+          path: ci-logs/
+          retention-days: 7
+
+      - name: Tear down all containers
+        if: always()
+        run: |
+          docker compose -f docker/docker-compose.frontend.yml --env-file environments/.env down 2>/dev/null || true
+          docker compose -f docker/docker-compose.backend.yml  --env-file environments/.env down 2>/dev/null || true
+          docker compose -f docker/docker-compose.yml          --env-file environments/.env down 2>/dev/null || true
+          echo "Stopped."

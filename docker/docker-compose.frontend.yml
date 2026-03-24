@@ -3,7 +3,7 @@ name: rythmify
 services:
   frontend:
     build:
-      context: ../../frontend
+      context: ${FRONTEND_CONTEXT:-../../frontend}
       dockerfile: Dockerfile
     container_name: rythmify_frontend
     restart: unless-stopped
@@ -16,7 +16,7 @@ services:
     networks:
       - rythmify_network
     volumes:
-      - ../../frontend:/app
+      - ${FRONTEND_CONTEXT:-../../frontend}:/app
       - /app/node_modules
 
 networks:
