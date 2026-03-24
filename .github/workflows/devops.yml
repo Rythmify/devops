@@ -207,11 +207,19 @@ jobs:
           docker compose -f docker/docker-compose.backend.yml --env-file environments/.env up -d
           echo "Backend running."
 
+      - name: Start frontend
+        run: |
+          export FRONTEND_CONTEXT=$GITHUB_WORKSPACE/frontend
+          docker compose -f docker/docker-compose.frontend.yml --env-file environments/.env up -d
+          echo "Frontend running."
+
       - name: Run migrations
-        run: docker exec rythmify_backend sh -c "npm run migrate"
+        run: docker exec rythmify_backend sh -c "npm run migrate:up"
 
       - name: Run seeds
-        run: docker exec rythmify_backend sh -c "npm run seed"
+        run: |
+          docker cp $GITHUB_WORKSPACE/backend/seeds/seed.sql rythmify_db:/seed.sql
+          docker exec rythmify_db psql -U dev -d rythmify_dev -f /seed.sql
 
       - name: Run backend smoke check
         run: |
