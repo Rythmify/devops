@@ -4,6 +4,7 @@
 *.env
 *.env.*
 !.env.example
+!monitoring/.env.monitoring.example
 environments/dev.env
 environments/staging.env
 environments/production.env
