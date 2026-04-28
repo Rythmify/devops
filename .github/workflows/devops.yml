@@ -223,11 +223,6 @@ jobs:
       - name: Run migrations
         run: docker exec rythmify_backend sh -c "npm run migrate:up"
 
-      - name: Run seeds
-        run: |
-          docker cp $GITHUB_WORKSPACE/backend/seeds/seed.sql rythmify_db:/seed.sql
-          docker exec rythmify_db psql -U dev -d rythmify_dev -f /seed.sql
-
       - name: Run backend smoke check
         run: |
           echo "Running backend smoke check..."
