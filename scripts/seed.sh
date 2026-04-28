@@ -1,5 +1,4 @@
 #!/bin/bash
 echo 'Seeding database...'
-docker cp ../backend/seeds/seed.sql rythmify_db:/seed.sql
-docker exec rythmify_db psql -U dev -d rythmify_dev -f /seed.sql
+docker exec rythmify_backend npm run seed:assets -- --reset-seed-audio
 echo 'Seeding complete.'
