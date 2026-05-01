@@ -39,9 +39,9 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        wget -q https://github.com/a8m/envsubst/releases/download/v1.2.0/envsubst-Linux-x86_64 -O /usr/local/bin/envsubst &&
-        chmod +x /usr/local/bin/envsubst &&
-        envsubst < /etc/alertmanager/alertmanager.yml.tmpl > /tmp/alertmanager.yml &&
+        wget -q https://github.com/a8m/envsubst/releases/download/v1.2.0/envsubst-Linux-x86_64 -O /tmp/envsubst &&
+        chmod +x /tmp/envsubst &&
+        /tmp/envsubst < /etc/alertmanager/alertmanager.yml.tmpl > /tmp/alertmanager.yml &&
         /bin/alertmanager --config.file=/tmp/alertmanager.yml --storage.path=/alertmanager
     environment:
       ALERTMANAGER_SMTP_PASSWORD: ${ALERTMANAGER_SMTP_PASSWORD}
@@ -70,6 +70,8 @@ services:
       GF_SMTP_FROM_NAME: ${GF_SMTP_FROM_NAME:-Rythmify Monitoring}
       GF_SMTP_STARTTLS_POLICY: MandatoryStartTLS
       ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      GF_SERVER_ROOT_URL: https://rythmify-back.duckdns.org/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
