@@ -1,4 +1,5 @@
 modules:
+  # Used internally or for plain HTTP endpoints
   http_2xx:
     prober: http
     timeout: 5s
@@ -9,3 +10,18 @@ modules:
         - HTTP/1.1
         - HTTP/2.0
       valid_status_codes: []
+
+  # Used for all public HTTPS endpoints — fails if TLS absent or cert invalid
+  https_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      valid_http_versions:
+        - HTTP/1.1
+        - HTTP/2.0
+      valid_status_codes: []
+      tls_config:
+        insecure_skip_verify: false
+      fail_if_not_ssl: true

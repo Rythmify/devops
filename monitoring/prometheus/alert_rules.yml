@@ -1,0 +1,75 @@
+groups:
+  - name: rythmify
+    interval: 30s
+    rules:
+      - alert: BackendDown
+        expr: up{job="backend_metrics"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Rythmify backend is down"
+          description: "Backend /metrics endpoint has been unreachable for more than 2 minutes."
+
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "postgres_exporter cannot connect to PostgreSQL at 10.0.1.4."
+
+      - alert: PublicEndpointDown
+        expr: probe_success{job="blackbox"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Public endpoint {{ $labels.instance }} is unreachable"
+          description: "Blackbox HTTPS probe for {{ $labels.instance }} has been failing for more than 2 minutes."
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_errors_total[5m]))
+          / clamp_min(sum(rate(http_requests_total[5m])), 1)
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP error rate ({{ $value | humanizePercentage }})"
+          description: "HTTP 4xx/5xx error rate has exceeded 5% for 5 consecutive minutes."
+
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value | humanize }}% on {{ $labels.instance }}."
+
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | humanize }}% on {{ $labels.instance }}."
+
+      - alert: DiskSpaceLow
+        expr: |
+          (1 - (
+            node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
+            / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}
+          )) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk {{ $labels.mountpoint }} is {{ $value | humanize }}% full on {{ $labels.instance }}."
