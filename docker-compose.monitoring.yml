@@ -32,13 +32,15 @@ services:
       - postgres_exporter
 
   alertmanager:
-    image: prom/alertmanager:v0.27.0
+    image: prom/alertmanager:v0.26.0
     container_name: rythmify_alertmanager
     restart: unless-stopped
+    user: root
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        apk add --no-cache gettext &&
+        wget -q https://github.com/a8m/envsubst/releases/download/v1.2.0/envsubst-Linux-x86_64 -O /usr/local/bin/envsubst &&
+        chmod +x /usr/local/bin/envsubst &&
         envsubst < /etc/alertmanager/alertmanager.yml.tmpl > /tmp/alertmanager.yml &&
         /bin/alertmanager --config.file=/tmp/alertmanager.yml --storage.path=/alertmanager
     environment:
