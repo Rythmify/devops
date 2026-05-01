@@ -1,5 +1,15 @@
 global:
   scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+rule_files:
+  - /etc/prometheus/alert_rules.yml
 
 scrape_configs:
   - job_name: prometheus
@@ -12,10 +22,10 @@ scrape_configs:
       - targets:
           - node_exporter:9100
 
-  - job_name: nginx_exporter
+  - job_name: nginx
     static_configs:
       - targets:
-          - nginx_exporter:9113
+          - nginx-exporter:9113
 
   - job_name: backend_metrics
     metrics_path: /metrics
@@ -23,16 +33,20 @@ scrape_configs:
       - targets:
           - host.docker.internal:8080
 
+  - job_name: postgres_exporter
+    static_configs:
+      - targets:
+          - postgres_exporter:9187
+
   - job_name: blackbox
     metrics_path: /probe
     params:
       module:
-        - http_2xx
+        - https_2xx
     static_configs:
       - targets:
-          - http://rythmify.duckdns.org/
-          - http://rythmify-back.duckdns.org/
-          - http://rythmify-back.duckdns.org/metrics
+          - https://rythmify-back.duckdns.org/health
+          - https://rythmify.duckdns.org
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

@@ -16,6 +16,15 @@ policies:
     group_by:
       - grafana_folder
       - alertname
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+      - receiver: Rythmify Email
+        matchers:
+          - severity = critical
+        group_wait: 10s
+        repeat_interval: 1h
 
 groups:
   - orgId: 1
@@ -23,6 +32,9 @@ groups:
     folder: Rythmify Monitoring
     interval: 1m
     rules:
+      # FIX: was `up{job="backend_metrics"} == 0` with `type: gt, params: [0]`
+      # That logic was inverted — fired when UP (no-data), silent when DOWN (0 > 0 = false).
+      # Fixed: query returns raw `up` value; condition fires when up < 1.
       - uid: backend-down
         title: Backend Down
         condition: C
@@ -33,7 +45,7 @@ groups:
               from: 300
               to: 0
             model:
-              expr: up{job="backend_metrics"} == 0
+              expr: up{job="backend_metrics"}
               instant: true
               refId: A
           - refId: C
@@ -42,8 +54,8 @@ groups:
               conditions:
                 - evaluator:
                     params:
-                      - 0
-                    type: gt
+                      - 1
+                    type: lt
                   operator:
                     type: and
                   query:
@@ -257,6 +269,8 @@ groups:
         labels:
           severity: warning
 
+      # FIX: same inverted-logic bug as backend-down.
+      # Fixed: query returns raw `probe_success`; condition fires when probe_success < 1.
       - uid: public-endpoint-down
         title: Public Endpoint Down
         condition: C
@@ -267,7 +281,7 @@ groups:
               from: 300
               to: 0
             model:
-              expr: probe_success{job="blackbox"} == 0
+              expr: probe_success{job="blackbox"}
               instant: true
               refId: A
           - refId: C
@@ -276,8 +290,8 @@ groups:
               conditions:
                 - evaluator:
                     params:
-                      - 0
-                    type: gt
+                      - 1
+                    type: lt
                   operator:
                     type: and
                   query:

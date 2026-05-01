@@ -1,0 +1,36 @@
+# Alertmanager config template — ${ALERTMANAGER_SMTP_PASSWORD} is substituted at
+# container start via envsubst in docker-compose.monitoring.yml. The raw template
+# is never executed by Alertmanager directly.
+
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'rythmify.noreply@gmail.com'
+  smtp_auth_username: 'rythmify.noreply@gmail.com'
+  smtp_auth_password: '${ALERTMANAGER_SMTP_PASSWORD}'
+  smtp_require_tls: true
+
+route:
+  receiver: email
+  group_by: [alertname, severity]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers:
+        - severity = critical
+      receiver: email
+      group_wait: 10s
+      repeat_interval: 1h
+
+receivers:
+  - name: email
+    email_configs:
+      - to: 'alabasy@live.com'
+        send_resolved: true
+
+inhibit_rules:
+  - source_matchers:
+      - severity = critical
+    target_matchers:
+      - severity = warning
+    equal: [alertname]
