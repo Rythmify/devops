@@ -6,10 +6,15 @@ This folder contains the Nginx virtual host configuration files for **VM1** (`ry
 
 | File | Domain | Purpose |
 |---|---|---|
-| `rythmify-back.duckdns.org.conf` | `rythmify-back.duckdns.org` | Backend API + Socket.IO proxy, GeoIP2 country injection, HTTPS |
-| `rythmify.duckdns.org.conf` | `rythmify.duckdns.org` | Frontend Vite dev server proxy, HTTPS, Nginx stub_status for Prometheus |
+| `rythmify-back.duckdns.org.conf` | `rythmify-back.duckdns.org` | Backend API + Socket.IO proxy, GeoIP2 country injection, HTTPS, Grafana proxy, Nginx stub_status |
+| `rythmify.duckdns.org.conf` | `rythmify.duckdns.org` | Frontend Vite dev server proxy, HTTPS |
 
-The backend config also defines a `geoip2` directive (above its `server {}` block, in the `http {}` context) that resolves every client IP to a country code and injects it as `X-Country-Code` on all proxied requests.
+The backend config contains three server blocks:
+- **HTTP → HTTPS redirect** on port 80
+- **HTTPS backend** on port 443 — proxies `/health`, `/grafana/`, and all API + WebSocket traffic to `localhost:8080` / `localhost:3000`
+- **stub_status** on `172.17.0.1:8081` — scraped by `nginx_exporter` inside Docker
+
+The `geoip2` directive (above all `server {}` blocks, in the `http {}` context) resolves every client IP to a country code and injects it as `X-Country-Code` on all proxied requests to the backend.
 
 ---
 
@@ -90,7 +95,7 @@ sudo ln -s /etc/nginx/sites-available/rythmify.duckdns.org.conf \
            /etc/nginx/sites-enabled/
 ```
 
-If the default Nginx site is enabled and conflicts with the `default_server` block in `rythmify.duckdns.org.conf`, disable it:
+Disable the default Nginx site if it is enabled (it conflicts with the new configs):
 
 ```bash
 sudo rm -f /etc/nginx/sites-enabled/default
@@ -140,6 +145,68 @@ Because the header is set by Nginx at the proxy layer, it **cannot be spoofed** 
 
 ---
 
+## Grafana Proxy
+
+Grafana runs inside Docker on port `3000`. It is not exposed publicly. Instead, the backend server block proxies `/grafana/` to `http://localhost:3000/`:
+
+```nginx
+location /grafana/ {
+    proxy_pass http://localhost:3000/;
+    proxy_http_version 1.1;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Access Grafana at: **https://rythmify-back.duckdns.org/grafana/**
+
+No SSH tunnel or port forwarding is needed.
+
+---
+
+## Nginx stub_status
+
+`nginx_exporter` (in `docker-compose.monitoring.yml`) scrapes Nginx connection metrics from a dedicated `stub_status` endpoint. The endpoint is defined in `rythmify-back.duckdns.org.conf` as a server block bound to the Docker bridge host IP:
+
+```nginx
+server {
+    listen 172.17.0.1:8081;
+    server_name _;
+
+    location /nginx_status {
+        stub_status;
+        allow 127.0.0.1;
+        allow 172.16.0.0/12;
+        deny  all;
+    }
+
+    location / {
+        return 444;
+    }
+}
+```
+
+`172.17.0.1` is the Docker bridge host IP — it is reachable from Docker containers but not from the public internet or from the VM loopback. `nginx_exporter` in the monitoring compose stack is configured to scrape `http://172.17.0.1:8081/nginx_status`.
+
+Verify from the VM:
+
+```bash
+curl -s http://172.17.0.1:8081/nginx_status
+```
+
+Expected output:
+
+```
+Active connections: 3
+server accepts handled requests
+ 12 12 24
+Reading: 0 Writing: 1 Waiting: 2
+```
+
+---
+
 ## SSL
 
 SSL certificates are managed by **Certbot** and must **not** be committed to this repository.
@@ -183,10 +250,4 @@ To automate this, create a cron job at `/etc/cron.d/geoipupdate`:
 ```cron
 # Refresh MaxMind GeoLite2-Country on the 1st and 15th of each month at 03:00
 0 3 1,15 * * root /usr/bin/geoipupdate && systemctl reload nginx
-```
-
-After adding the file, verify cron picks it up:
-
-```bash
-sudo crontab -l
 ```
