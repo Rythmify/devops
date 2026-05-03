@@ -8,13 +8,13 @@ Practical reference for navigating and operating the two Azure VMs that run the 
 
 Two VMs in **Azure UAE North**, connected by a shared VNet (private subnet `10.0.1.0/24`).
 
-| | VM1 — App | VM2 — Database |
-|---|---|---|
-| **Name** | `rythmify-app-vm` | `rythmify-db-vm` |
-| **Public IP** | `20.196.3.253` | `20.233.118.212` |
-| **Private IP** | `10.0.1.5` (VNet) | `10.0.1.4` |
-| **Size** | B2s_v2 | B2als_v2 |
-| **Runs** | Backend container, Redis, full monitoring stack, Nginx | PostgreSQL in Docker |
+|                | VM1 — App                                              | VM2 — Database       |
+| -------------- | ------------------------------------------------------ | -------------------- |
+| **Name**       | `rythmify-app-vm`                                      | `rythmify-db-vm`     |
+| **Public IP**  | `20.196.3.253`                                         | `20.233.118.212`     |
+| **Private IP** | `10.0.1.5` (VNet)                                      | `10.0.1.4`           |
+| **Size**       | B2s_v2                                                 | B2als_v2             |
+| **Runs**       | Backend container, Redis, full monitoring stack, Nginx | PostgreSQL in Docker |
 
 VM1 handles all public traffic. VM2 is database-only — PostgreSQL is not exposed publicly, only reachable from VM1 via the private VNet address `10.0.1.4:5432`.
 
@@ -23,11 +23,13 @@ VM1 handles all public traffic. VM2 is database-only — PostgreSQL is not expos
 ## SSH Access
 
 **VM1:**
+
 ```bash
 ssh rythmify@20.196.3.253 -i rythmify-app-vm_key.pem
 ```
 
 **VM2:**
+
 ```bash
 ssh rythmify@20.233.118.212 -i rythmify-db-vm_key.pem
 ```
@@ -43,14 +45,14 @@ chmod 400 rythmify-db-vm_key.pem
 
 ## VM1 Folder Structure
 
-| Path | Description |
-|---|---|
-| `~/devops/` | Cloned DevOps repo — all container configs, compose files, and nginx configs live here |
-| `~/devops/monitoring/.env.monitoring` | Monitoring stack secrets — never committed to git |
-| `/etc/nginx/sites-available/rythmify-back.duckdns.org.conf` | Active backend Nginx config |
-| `/etc/nginx/sites-available/rythmify.duckdns.org.conf` | Active frontend Nginx config |
-| `/var/lib/GeoIP/` | MaxMind GeoLite2-Country database (`GeoLite2-Country.mmdb`) |
-| `/var/www/rythmify/` | Frontend static files served by Nginx (if applicable) |
+| Path                                                        | Description                                                                            |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `~/devops/`                                                 | Cloned DevOps repo — all container configs, compose files, and nginx configs live here |
+| `~/devops/monitoring/.env.monitoring`                       | Monitoring stack secrets — never committed to git                                      |
+| `/etc/nginx/sites-available/rythmify-back.duckdns.org.conf` | Active backend Nginx config                                                            |
+| `/etc/nginx/sites-available/rythmify.duckdns.org.conf`      | Active frontend Nginx config                                                           |
+| `/var/lib/GeoIP/`                                           | MaxMind GeoLite2-Country database (`GeoLite2-Country.mmdb`)                            |
+| `/var/www/rythmify/`                                        | Frontend static files served by Nginx (if applicable)                                  |
 
 ---
 
@@ -152,12 +154,12 @@ curl -s http://172.17.0.1:8081/nginx_status
 
 **Azure NSG (Network Security Group) — VM1 inbound rules:**
 
-| Port | Protocol | Access |
-|---|---|---|
-| 80 | TCP | Public — HTTP (redirected to HTTPS by Nginx) |
-| 443 | TCP | Public — HTTPS |
-| 22 | TCP | Restricted — SSH (limit to known IPs if possible) |
-| All others | — | Denied |
+| Port       | Protocol | Access                                            |
+| ---------- | -------- | ------------------------------------------------- |
+| 80         | TCP      | Public — HTTP (redirected to HTTPS by Nginx)      |
+| 443        | TCP      | Public — HTTPS                                    |
+| 22         | TCP      | Restricted — SSH (limit to known IPs if possible) |
+| All others | —        | Denied                                            |
 
 Grafana (3000), Prometheus (9090), Alertmanager (9093), Redis, and the backend (8080) are internal only — they are **not** in the NSG allow list and are only accessible via Nginx proxy or SSH tunnel.
 
