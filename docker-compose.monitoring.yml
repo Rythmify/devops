@@ -30,6 +30,7 @@ services:
       - nginx-exporter
       - blackbox_exporter
       - postgres_exporter
+      - redis_exporter
 
   alertmanager:
     image: prom/alertmanager:v0.26.0
@@ -99,7 +100,7 @@ services:
     container_name: rythmify_nginx_exporter
     restart: unless-stopped
     command:
-      --nginx.scrape-uri=http://host.docker.internal:8081/nginx_status
+      - '--nginx.scrape-uri=http://host.docker.internal:8081/nginx_status'
     extra_hosts:
       - host.docker.internal:host-gateway
     ports:
@@ -131,6 +132,19 @@ services:
       DATA_SOURCE_NAME: "postgresql://rythmify_admin:${POSTGRES_PASSWORD}@10.0.1.4:5432/rythmify_db?sslmode=disable"
     ports:
       - "9187:9187"
+    networks:
+      - monitoring
+
+  redis_exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: rythmify_redis_exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://host.docker.internal:6379
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "9121:9121"
     networks:
       - monitoring
 

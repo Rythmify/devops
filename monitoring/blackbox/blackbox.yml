@@ -1,5 +1,4 @@
 modules:
-  # Used internally or for plain HTTP endpoints
   http_2xx:
     prober: http
     timeout: 5s
@@ -11,7 +10,6 @@ modules:
         - HTTP/2.0
       valid_status_codes: []
 
-  # Used for all public HTTPS endpoints — fails if TLS absent or cert invalid
   https_2xx:
     prober: http
     timeout: 10s
