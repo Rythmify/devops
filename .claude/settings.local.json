@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Remove-Item \"C:\\\\Users\\\\alaba\\\\OneDrive\\\\Desktop\\\\Rythmify\\\\devops\\\\monitoring\\\\grafana\\\\provisioning\\\\alerting\\\\alerts.yml\" -Force)",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\alaba\\\\OneDrive\\\\Desktop\\\\Rythmify\\\\devops\\\\monitoring\\\\grafana\\\\provisioning\\\\alerting\" -ErrorAction SilentlyContinue)",
+      "Bash(Measure-Object)",
+      "Bash(Select-Object -ExpandProperty Count)",
+      "PowerShell(Remove-Item *)"
+    ]
+  }
+}

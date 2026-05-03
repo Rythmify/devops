@@ -12,26 +12,26 @@ Components: **Prometheus** · **Grafana** · **Alertmanager** · **Blackbox Expo
 
 ```
                         ┌─────────────────────────────────────────┐
-                        │  VM1 — Docker monitoring stack           │
-                        │                                          │
+                        │  VM1 — Docker monitoring stack          │
+                        │                                         │
   ┌──────────────┐      │  ┌───────────┐    ┌──────────────────┐  │
   │ Backend      │◄─────┼──│ Prometheus│───►│ Grafana          │  │
   │ :8080/metrics│      │  │ :9090     │    │ :3000            │  │
   └──────────────┘      │  └─────┬─────┘    │ /grafana/ proxy  │  │
-                        │        │           └──────────────────┘  │
-  ┌──────────────┐      │        │           ┌──────────────────┐  │
-  │ Node Exporter│◄─────┼────────┤           │ Alertmanager     │  │
-  │ :9100        │      │        │           │ :9093            │  │
-  └──────────────┘      │        │           │ Gmail SMTP       │  │
-                        │        │           └──────────────────┘  │
-  ┌──────────────┐      │        │                                  │
+                        │        │          └──────────────────┘  │
+  ┌──────────────┐      │        │           ┌──────────────────┐ │
+  │ Node Exporter│◄─────┼────────┤           │ Alertmanager     │ │
+  │ :9100        │      │        │           │ :9093            │ │
+  └──────────────┘      │        │           │ Gmail SMTP       │ │
+                        │        │           └──────────────────┘ │
+  ┌──────────────┐      │        │                                │
   │ Nginx        │◄─────┼────────┤  ┌──────────────────────────┐  │
-  │ stub_status  │      │        │  │ Blackbox Exporter :9115   │  │
-  │ 172.17.0.1   │      │        ├──┤ probes public HTTPS URLs  │  │
+  │ stub_status  │      │        │  │ Blackbox Exporter :9115  │  │
+  │ 172.17.0.1   │      │        ├──┤ probes public HTTPS URLs │  │
   │ :8081        │      │        │  └──────────────────────────┘  │
-  └──────────────┘      │        │                                  │
+  └──────────────┘      │        │                                │
                         │        │  ┌──────────────────────────┐  │
-  ┌──────────────┐      │        └──┤ Postgres Exporter :9187   │  │
+  ┌──────────────┐      │        └──┤ Postgres Exporter :9187  │  │
   │ PostgreSQL   │◄─────┼───────────┤ connects to VM2 :5432    │  │
   │ VM2:5432     │      │           └──────────────────────────┘  │
   └──────────────┘      └─────────────────────────────────────────┘
@@ -223,3 +223,15 @@ Verify `GF_SMTP_ENABLED=true`, `SMTP_HOST=smtp.gmail.com:587`, `SMTP_USER`, and 
 
 **`host.docker.internal` not resolving in Prometheus**
 Confirm `docker-compose.monitoring.yml` includes `extra_hosts: - "host.docker.internal:host-gateway"` on the Prometheus service.
+
+---
+
+## Grafana Community Dashboards
+
+Import via Grafana UI → Dashboards → Import → Enter ID → Load → Save.
+
+| Dashboard | ID | What it shows |
+|---|---|---|
+| Node Exporter Full | 1860 | VM CPU, memory, disk, network (full detail) |
+| NGINX | 12708 | Nginx connections, requests, error rates |
+| PostgreSQL | 9628 | DB health (alternative to provisioned dashboard) |
